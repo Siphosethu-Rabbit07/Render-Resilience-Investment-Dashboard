@@ -1,3 +1,4 @@
+import os
 import traceback  # For detailed error printing
 import urllib.parse  # For URL encoding in details link
 
@@ -45,13 +46,25 @@ def run_historical_analysis(corridor_filter, disruption_filter):
     avg_adp_hours = 0
 
     try:
-        # Database connection parameters
-        db_params = {
-            "user": "postgres", "password": "Sipho$e2", "host": "localhost",
-            "port": "5432", "database": "tfr_resilience_db4"
-        }
-        engine = create_engine(
-            f"postgresql+psycopg2://{db_params['user']}:{db_params['password']}@{db_params['host']}:{db_params['port']}/{db_params['database']}")
+        # --- NEW DATABASE CONNECTION (FOR RENDER) ---
+        # This block securely reads the DATABASE_URL from Render's environment variables.
+        db_url = os.environ.get('DATABASE_URL')
+
+        if not db_url:
+            # Fallback for local testing (if you still want to run it locally)
+            print("DATABASE_URL not set, falling back to localhost.")
+            db_params = {
+                "user": "postgres", "password": "Sipho$e2", "host": "localhost",
+                "port": "5432", "database": "tfr_resilience_db4"
+            }
+            db_url = f"postgresql+psycopg2://{db_params['user']}:{db_params['password']}@{db_params['host']}:{db_params['port']}/{db_params['database']}"
+        else:
+            # When on Render, add the "psycopg2" driver name for SQLAlchemy
+            if db_url.startswith("postgresql://"):
+                db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+        engine = create_engine(db_url)
+        # --- END OF NEW DATABASE CONNECTION ---
 
         # This SQL query aggregates train logs into 4-hour blocks, calculates performance,
         # and flags which blocks were part of the selected disruption type.
